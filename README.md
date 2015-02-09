@@ -16,5 +16,15 @@ So, what's the main difference from floppyfw-3.0?
  * /etc/init.d/ - initscripts. But still very simple and main config is done in ff2.conf (which was named config before)
  * Newest possible released Linux kernel (3.17 when this was written.
  * No iptables,but instead I've jumped directly to <a href="http://www.netfilter.org/projects/nftables/index.html">nftables</a>
- * Can be compiled and run on anything that Buildroot can be persuaded to build for. Right now it's RaspberryPi, but I also want to run it on one or more Mikrotik routers.
+ * Can be compiled and run on anything that Buildroot can be persuaded to build for. Right now it's RaspberryPi and Virtualbox, but I also want to run it on one or more Mikrotik routers.
+
+Install/Build
+=============
+
+ * Download/clone buildroot.
+ * cp Makefile.ffw-dist Makefile.ffw
+ * Edit Makefile 
+    * You need to pick a variant. (Or use an environment variable)
+    * and change at least the placement of the buildroot source.
+ * For now, to handle the ffw4 specific stuff in Makefile.ffw you have to run mk.sh.
 
