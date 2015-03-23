@@ -1,0 +1,16 @@
+dl
+buildroot/
+tmp/
+tmp_scripts/
+images/
+stamps/
+target/
+staging
+Makefile
+.config*
+..config.tmp
+Makefile.ffw
+build/
+staging/
+stamps/
+defconfig
