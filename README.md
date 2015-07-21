@@ -27,4 +27,5 @@ Install/Build
     * You need to pick a variant. (Or use an environment variable)
     * and change at least the placement of the buildroot source.
  * For now, to handle the ffw4 specific stuff in Makefile.ffw you have to run mk.sh.
+ * Copy the config files you want to edit from ffw4-configs/ to local-configs/ and edit them there. They will be copied into the image on image creation.
 
