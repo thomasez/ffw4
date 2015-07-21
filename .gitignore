@@ -1,5 +1,6 @@
 dl
 buildroot/
+host/
 tmp/
 tmp_scripts/
 images/
