@@ -53,7 +53,7 @@ ffw4-variants:
 	@echo 'usb'
 
 ffw4-savedefconfig:
-	$(SCRIPTS_DIR)/savedefconfigs.sh $(VARIANT)
+	$(SCRIPTS_DIR)/savedefconfig.sh $(VARIANT)
 
 ffw4-saveconfigs:
 	$(SCRIPTS_DIR)/saveconfigs.sh $(VARIANT)
