@@ -1,0 +1,20 @@
+#!/bin/sh
+
+if [ "$1" != "start" -a "$1" != "restart" ]
+ then
+  exit 0
+fi
+. /etc/ffw4.conf
+
+if [ -d /usr/lib/keymaps -a -n "$KEYMAP" ]
+ then
+  echo "Copying keymap."
+  cp  /usr/lib/keymaps/$KEYMAP.bmap /etc/default.bmap
+fi
+
+if [ -f /etc/default.bmap ]
+ then
+  echo "Loading keymap."
+  loadkmap < /etc/default.bmap
+fi
+

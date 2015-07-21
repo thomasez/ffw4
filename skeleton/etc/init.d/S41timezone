@@ -1,0 +1,13 @@
+#!/bin/sh
+
+. /etc/ffw4.conf
+
+# 
+# This used to be where the time zone file was copied.
+# Now, it's only a variable and a file. 
+# 
+if [ $TIMEZONE ] 
+ then 
+  echo $TIMEZONE > /etc/TZ
+fi
+

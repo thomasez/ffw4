@@ -1,0 +1,362 @@
+#
+# Configuration for floppyfw
+
+# $Id: config,v 1.12 2005/09/24 17:50:01 thomasez Exp $
+
+#
+# Fill in the blanks.
+#
+
+# For configuring of modules to use, 
+# this includes the network interfaces: /modules.lst
+
+# For configuring firewall rules and incoming traffic: /firewall.ini
+# For configuring extra network interfaces you may use netwirk.ini
+
+# Serial console is set in syslinux.cfg (or isolinux.cfg for CD's)
+
+# The default internal network is 10.42.42.* with 10.42.42.1
+# As the floppyfw internal address (and default gateway for all
+# internal machines). To change this go down to the INSIDE section.
+
+#=============================================================================
+#
+# Basic configuration:
+#
+
+# Select the type of your OUTSIDE connection:
+
+# CONNECT_TYPE=PPP	# if you use a modem
+
+# CONNECT_TYPE=PPPoE    # if you use some type of DSL that uses PPPoE
+                        # (Most of them do)
+CONNECT_TYPE=DHCP       # For getting the IP address by DHCP, often used 
+                        # on cable modems.
+
+DHCP_USE_LAST_ADDR=y	# I'll make this new feature a default yes.
+			# Reason is simple; I Want it and I presume
+			# most others want it aswell.
+			# Since it tries to store the address on the
+			# root / source media, this only works with a 
+			# writeable source.
+
+# CONNECT_TYPE=STATIC	# For the good old LAN/WAN connections with
+			# static IP addresses on the outside.
+			# (setup of the interface is done further down 
+			# in this file)
+
+# CONNECT_TYPE=EXTERNAL # is a hook for booting a external startup
+                        # script from a package.
+                        # the external script has to be in /etc/ext-up.init
+
+#
+# Some connection methods wants a userid and password, PPP and PPPoE 
+# is the typical but also the EXTERNAL option may want it.
+# This is also where you can put the hostname/user id that some DHCP servers
+# and ISPs require.
+#
+USER_IDENT=
+USER_PASSWORD=
+
+#
+# Use a DHCP server on the inside network. (This will turn on DNSMASQ aswell)
+# (Dnsmasq is a dns cache.)
+#
+DHCP_SERVER=n
+
+#
+# Floppyfw now has a login prompt.
+# Default, for now, is a login prompt and no password..
+# You have to "login" as root.
+#
+# Password can be created in many ways. You have two (three) options, 
+# DES_PASSWORD will accept a crypted string 
+# PASSWORD will accept a string (the specific root password, 
+#          minimum 5 characters, maximum 8.). 
+
+# This will give you "ffw" as login password.
+# DES_PASSWORD=nCLm5JgCK0G5U 
+PASSWORD=ffw
+
+
+# 
+# Done! Your floppyfw should already work by now.
+# Save this file and give it a first shot !
+# Beneath are options for setting up more advanced stuff
+# (including static network settings and ppp)
+
+#=============================================================================
+#
+# Wonder shaper. http://lartc.org/wondershaper/
+# 
+# Set this to "y" if you want wonder shaper to run at startup.
+WONDER_SHAPER=n
+
+# This requires you to set the download and upload speed. 
+
+# The speed you are receiving data (downlink), in Kbit:
+DOWNLOAD_SPEED=2048
+
+# The speed you are sending data (uplink), in Kbit:
+UPLOAD_SPEED=256
+
+#====================================
+#
+# VoIP Subsection of Wonder shaper (Disabled if WONDER_SHAPER=n)
+#
+# If you have a IP-Phone, set this to the IP address of the phone
+# or the machine running the phone software and Wondershaper will be
+# even better. If left blank will remove the VoIP RT10 Class completely.
+PHONE_IP=
+
+# PHONE_IP VoIP Class 10 RTP data - set to desired rate (90000 recommended)
+# If left blank will remove the VoIP RT10 Class completely.
+RT10=90000
+
+# To forward RTP or SIP ports, set the appropriate FORWARD_XXX=y
+# Note that forwarding udp ports will have security implications.
+# VOIP rtp data ports - LOwest and HIghest port number in range 
+# get from your VoIP provider
+LO_RTPPORT=
+HI_RTPPORT=
+FORWARD_RTP=n
+
+# INT - SIP priority ports - space separated if > 1
+# get from your VoIP provider - normally "5060" or "5060 5061"
+INTPORTS=""
+FORWARD_SIP=n
+
+#
+#=============================================================================
+#
+
+#
+# Physical device layout:
+#
+# In the files /etc/outside.info and /etc/inside.info you will see 
+# OUTSIDE_DEVICE and INSIDE_DEVICE, those are the logical devices used by
+# firewall.init and friends..
+#
+# If you have only one network card you can set INSIDE_DEV to eth0:0
+# and it will use ip aliasing to make it all work.
+#
+# You can also use device.VLAN-ID to automatically set it as a VLAN.
+#
+OUTSIDE_DEV=eth0 
+INSIDE_DEV=eth1
+
+#-----------------------------------------------------------------------------
+#
+# INSIDE settings:
+#
+# 
+# Your inside network, this has 10.42.42.* set as default, this is 
+# addresses assigned for internal networks according to RFC 1918.
+#
+# Network and broadcast address will be automatically configured.
+#
+INSIDE_IP=10.42.42.1
+INSIDE_NETMASK=255.255.255.0
+
+# 
+# If you use the internal DHCP server and change the IP address and range
+# above you should also set the dhcp address range.
+#
+DHCP_RANGE_START=10.42.42.100  
+DHCP_RANGE_END=10.42.42.200
+
+#-----------------------------------------------------------------------------
+
+#
+# OUTSIDE settings if you are using the STATIC connection option:
+#
+# Network and broadcast address will be automatically configured.
+#
+OUTSIDE_IP=
+OUTSIDE_NETMASK=
+
+#
+# Misc
+# These are not nescessary to set if you are using DHCP.
+# (The DOMAIN field might be useful to change)
+#
+DEFAULT_GATEWAY=
+
+# Name servers can be a list, separated by a space. like "1.1.1.1 1.1.1.2"
+OUTSIDE_NAMESERVERS=""
+
+# MAC address for outside nic
+# Some ISPs uses bootp style dhcp tables and some just remembers the last
+# used MAC address. this allows you to swap nics
+# OUTSIDE_MAC=00:00:e8:48:6c:cb
+
+#-----------------------------------------------------------------------------
+
+#
+# DMZ settings. 
+#
+# You can also fine tune the firewall settings in dmz-fw.ini
+#
+# This can also be set up as the device/LAN for an open WLAN.
+# As with the other interfaces, you can use device.VLAN-ID to automatically
+# set it as a VLAN.
+#
+# Please note that enabling this automatically opens up for DNS requests to
+# the floppyfw from DMZ.
+#
+
+USE_DMZ=n
+DMZ_DOMAIN=
+DMZ_DEV=eth2
+DMZ_IP=10.42.69.1
+DMZ_NETMASK=255.255.255.0
+DMZ_DHCP_SERVER=n
+DMZ_DHCP_RANGE_START=10.42.69.100
+DMZ_DHCP_RANGE_END=10.42.69.200
+
+#
+# This switch will turn on or off NAT to the outside network.
+#
+
+DMZ_USE_NAT=y
+
+# What traffic do you want to allow from DMZ to OUTSIDE?
+# Specifying "all" will allow all traffic, "none" will block all. TCP based
+# protocols can be specified in a comma separated list like this:
+# DMZ_ALLOW_TO_OUTSIDE="ssh,www,https,ftp,domain,pop3,pop3s,imap3,imaps"
+DMZ_ALLOW_TO_OUTSIDE="all"
+
+# What traffic do you want to allow from DMZ to INSIDE?
+# Specifying "all" will allow all traffic, "none" will block all. TCP based
+# protocols can be specified in a comma separated list like this:
+# DMZ_ALLOW_TO_INSIDE="ssh,ftp"
+DMZ_ALLOW_TO_INSIDE="none"
+
+# What traffic do you want to allow from INSIDE to DMZ?
+# Specifying "all" will allow all traffic, "none" will block all. TCP based
+# protocols can be specified in a comma separated list like this:
+# DMZ_ALLOW_FROM_INSIDE="ssh,ftp,http,https,smtp"
+DMZ_ALLOW_FROM_INSIDE="all"
+
+# This is to set a traffic shaping rule to restrict the bandwidth.
+# DMZ_RESTRICT_KBITS=64
+
+#-----------------------------------------------------------------------------
+
+# PPP settings:
+#
+# Change the following only if you are using PPP or PPPoE.
+#
+
+# 
+# Phone number:
+TELEPHONE=
+
+# Serial Port COM1 is /dev/tts/0, COM2 is /dev/tts/1 etc.
+SERIAL_PORT=/dev/tts/1
+PORT_SPEED=57600
+PPP_CONNECT_TIMEOUT=60
+PPP_CONNECT_POLL=3
+
+# For exotic modems: The default values should work for most modems.
+MODEM_INIT="AT&F"
+
+# USEPEERDNS used to be here. it's now deprecated, or basically, it's 
+# being turned on permanently.
+# *but*, you can override it using the OUTSIDE_NAMESERVERS option you will 
+# find further up in this config file. The ip-up script will create an 
+# /etc/resolv.conf file with the OUTSIDE_NAMESERVERS as the first available
+# name servers (if any are set) and then the LCP given addresses.
+
+# Change the DEMAND variable to either:
+# 'no' for "always on" connection
+# N where N is the number of idle seconds before we disconnect
+#DEMAND=600
+DEMAND=no
+
+# A debug option for debugging PPPoE, it will log to the specified file.
+# This must NOT be used during normal use, it'll fill up the ramdisk.. 
+# PPPOE_DEBUG=/tmp/pppoe.log
+
+#-----------------------------------------------------------------------------
+
+# 
+# Defaults and switches:
+#
+
+HOSTNAME=floppyfw
+# Set this if you don't want your outside DHCP server decide.
+# DOMAIN=floppyfwsecured.local
+
+#
+# dnsmasq accepts DNS queries of inside machines and
+# either answers them from a small, local, cache
+# or forwards them to a real, recursive, DNS server.
+#
+# It loads the contents of /etc/hosts into the cache at startup so that
+# local hostnames which do not appear in the global DNS can be resolved.
+#
+DNSMASQ=n
+
+#
+# And for the logging the scripts use:
+# Default works for most purposes.
+#
+DEBUG_LOG="/dev/tty3"
+
+# 
+# Turning on syslogd and klogd. 
+# This is a nice thing but will eat CPU which is why it is turned 
+# off by default.
+# The firewall.ini file is where you can turn on logging of rejected packages.
+#
+USE_SYSLOG=n
+
+# Uncomment to log to /dev/vc/4 instead of /var/log/messages
+# which aren't exactly a good idea on a ramdisk.
+SYSLOG_TTY="-O $DEBUG_LOG"
+# Or the another virtual console than the other messages:
+# SYSLOG_TTY="-O /dev/vc/4"
+
+# Uncomment to log to network. host:port
+# SYSLOG_NET="-R 10.42.42.42:514"
+
+# Uncomment to not print a mark
+# SYSLOG_MARK="-m 0"
+
+[ "$SYSLOG_TTY" -a "$SYSLOG_NET" ] && SYSLOG_BOTH="-L"
+SYSLOG_FLAGS="$SYSLOG_MARK $SYSLOG_TTY $SYSLOG_NET $SYSLOG_BOTH"
+
+# 
+# Time zone.
+# This is a string which will be put in /etc/TZ 
+#
+TIMEZONE=
+
+# 
+# Keymap. Either copy one to /etc/default.kmap yourself or set the name
+# here, without ".kmap.gz". Check /usr/lib/keymaps for available keymaps.
+# This is a string which will be put in /etc/TZ 
+#
+KEYMAP=
+
+#
+# At the bottom (almost) because this is a feature that should not be 
+# widely used but it will be useful for some people, escpecially
+# people using some irc servers demanding a result.
+# 
+# This is a fake ident daemon, you can set the userid it shall answer
+# and floppyfw will automagically start the fake identd with this user
+# as the response.
+#
+# This will have security implications since you are running a listening 
+# daemon (server) on the outside network interface. do this ONLY 
+# if you really need it.
+#
+#FAKEIDENT=
+
+#
+# Reserve this amount of RAM after all packages are unpacked. 
+# This is the amount used to calculate the value of 
+# /proc/sys/net/ipv4/ip_conntrack_max in firewall.ini(t)
+RESERVE_MB=1

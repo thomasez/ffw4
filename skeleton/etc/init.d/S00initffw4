@@ -1,0 +1,57 @@
+#!/bin/sh
+
+if [ "$1" != "start" -a "$1" != "restart" ]
+ then
+  exit 0
+fi
+/bin/busybox echo "Booting floppyfw" 
+
+. /etc/functions.inc
+
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+TERM=linux
+export PATH TERM
+umask 022
+
+# We need these before most else.
+mdev -s
+mount -a
+
+#
+# And then do the ffw specific "magic"
+# 
+
+#
+# Testing wether we are using a serial console.
+# It'd better use the serial= option but I'm not sure how to grab 
+# that info (yet) and 
+
+COMMAND_LINE=`cat /proc/cmdline`
+
+( echo $COMMAND_LINE | grep console ) && {
+  CONSOLE=`echo $COMMAND_LINE | sed -e 's/$/ /' -e 's/.*console=\([^ ]*\) .*/\1/' -e 's/,/ /g'`
+}
+
+if [ "$CONSOLE" != "" ]
+ then
+  set -- $CONSOLE
+
+  # Need a speed.
+  if [ $# -eq 1 ]
+  then
+    set -- $1 9600
+  fi
+
+  mv /etc/inittab.serial /etc/inittab
+
+  DEV=`echo $1 | sed -e 's|/dev/||'`
+
+  echo "$DEV::respawn:/sbin/getty -L $1 $2 vt100" >> /etc/inittab
+ else 
+  if [ "$CONNECT_TYPE" != "PPP" -a -f /dev/ttyS0 ]
+    then
+     echo "ttyS00::respawn:/sbin/getty -L /dev/ttyS0 19200 vt100" >> /etc/inittab
+    fi
+  rm /etc/inittab.serial
+fi
+

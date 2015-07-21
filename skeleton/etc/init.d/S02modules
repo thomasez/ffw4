@@ -1,0 +1,33 @@
+#!/bin/sh
+
+if [ "$1" != "start" -a "$1" != "restart" ]
+ then
+  exit 0
+fi
+echo "Creating modules.conf."
+
+. /etc/ffw4.conf
+
+# Grygory Farkas suggested this one:
+grep "\w \w" /etc/modules.lst | sed '/^#/d;s/^/options /' >> /etc/modules.conf 
+
+echo "Inserting modules."
+while read myline
+ do
+  case o${myline} in
+   o\#*|o)
+    ;;
+   oinsmod*)
+    ${myline} >> $DEBUG_LOG 2>&1
+    ;;
+   o*)
+    # insmod ${myline} >> $DEBUG_LOG 2>&1
+    modprobe ${myline} >> $DEBUG_LOG 2>&1
+    if [ $? -eq  0 ]
+      then
+       echo -n "${myline}  "
+    fi
+    ;;
+  esac
+ done < /etc/modules.lst
+

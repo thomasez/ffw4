@@ -1,0 +1,87 @@
+#!/bin/sh
+
+# 
+# If the ROOT device is a read-only device we might have a second 
+# device where the config flies reside:
+# (The configdevice option in the append line.)
+#
+# The reason for having this as late as this is that we may have some modules
+# available that we could use (like USB-storage)
+#
+
+. /etc/functions.inc
+
+if [ "$1" != "start" -a "$1" != "restart" ]
+ then
+  exit 0
+fi
+
+COMMAND_LINE=`cat /proc/cmdline`
+echo -e COMMAND_LINE=\"$COMMAND_LINE\" >> /etc/ffw4.conf
+
+ROOTDEV=$(echo $COMMAND_LINE |sed -e 's/$/ /' -e 's/.*root=\([^ ]*\) .*/\1/' -e 's/,/ /g' -e 's:/dev/nfs:/dev/fd0:')
+
+if echo $COMMAND_LINE | grep configdevice
+ then
+  echo Setting configdevice
+  CONFDEV=$(echo $COMMAND_LINE | sed -e 's/$/ /' -e 's/.*configdevice=\([^ ]*\) .*/\1/' -e 's/,/ /g' -e 's:/dev/nfs:/dev/fd0:')
+  echo set to $CONFDEV
+fi
+
+# If no set config device, set root device and exit this script.
+if [ -z "$CONFDEV" ]
+  then
+    echo "SOURCE_DEV=$ROOTDEV" >> /etc/ffw4.conf
+    exit 0
+fi
+
+echo $CONFDEV > /etc/ffw4.confdevice
+echo "You have some of your configuration on a separate medium, using it."
+CONFDEV=`cat /etc/ffw4.confdevice`  
+mkdir -p /mnt/config
+set -- $CONFDEV
+# Backward compatibility with a single device argument
+if [ $# -eq 1 ]
+	 then
+  set -- $1 vfat
+fi
+while [ "$1" -a "$2" ]
+do
+     echo "Attempting to mount $1 ($2)"
+     # if mount -t $2 $1 /mnt/config
+     # Wonder if it can autodetect, like always?
+     if mount $1 /mnt/config
+      then
+       echo "Mounted $1 on /mnt/config"
+       break
+     else
+       echo "Mount failed"
+       rm -r /mnt/config 
+     fi
+     shift; shift
+done
+
+CONFIG_FILES="dmz-ethers.ini dmz-fw.ini ffw4.conf config ethers hosts modules.lst firewall.ini network.ini"
+
+for cf in $CONFIG_FILES 
+  do
+    if [ -f /mnt/config/$cf ]
+     then
+      stripcr /mnt/config/$cf /etc/$cf
+      echo "Stripped and copied $cf"
+  fi
+done
+
+# I want real nice names.
+[ -f /etc/config ] && mv /etc/config /etc/ffw4.conf
+mv /etc/network.ini /etc/network.init
+chmod 755 /etc/network.init
+mv /etc/firewall.ini /etc/firewall.init
+chmod 755 /etc/firewall.init
+stripcr /mnt/tmp/floppyfw.msg /etc/issue 644
+
+# I also want to add the source device and file system so that I can remount.
+set -- $ROOTDEV
+echo "SOURCE_DEV=$ROOTDEV" >> /etc/ffw4.conf
+echo "CONFIG_DEV=$CONFDEV" >> /etc/ffw4.conf
+

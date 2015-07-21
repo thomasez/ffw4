@@ -1,0 +1,15 @@
+#!/bin/sh
+
+if [ "$1" != "start" -a "$1" != "restart" ]
+ then
+  exit 0
+fi
+. /etc/ffw4.conf
+
+if [ ${FAKEIDENT} ]; 
+then
+  echo "running fakeidentd with ${FAKEIDENT} as the ident answer."
+  echo "(You are taking a risk by running this application.)"
+  fakeidentd ${FAKEIDENT}
+fi
+

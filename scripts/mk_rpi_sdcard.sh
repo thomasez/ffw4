@@ -1,0 +1,185 @@
+#!/bin/sh
+#
+# Flash Raspberry Pi SD card [buildroot]
+# https://github.com/gamaral/rpi-buildroot/blob/rpi/board/raspberrypi/mksdcard
+#
+# Guillermo A. Amaral B. <g@maral.me>
+#
+
+SDCARD="${1}"
+
+usage() {
+	echo "Usage: ${0} [SDCARD]"
+	echo "Where SDCARD is your SD card device node, for example: /dev/sdx"
+	echo
+	echo "You will require *root* privileges in order to use this script."
+	echo
+}
+
+confirm() {
+	echo "You are about to totally decimate the following device node: ${SDCARD}"
+	echo
+	echo "If you are sure you want to continue? (Please write \"YES\" in all caps)"
+
+	read CONTUNUE
+
+	if [ "${CONTUNUE}" != "YES" ]; then
+		echo "User didn't write \"YES\"... ABORTING!"
+		exit 1
+	fi
+}
+
+section() {
+	echo "*****************************************************************************************"
+	echo "> ${*}"
+	echo "*****************************************************************************************"
+	sleep 1
+}
+
+# environment overrides
+
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+OUTPUT_PREFIX=""
+
+# check parameters
+
+if [ -z "${SDCARD}" ] || [ "${SDCARD}" = "-h" ] || [ "${SDCARD}" = "--help" ]; then
+	usage
+	exit 0
+fi
+
+# check if node is a block device
+
+if [ ! -b "${SDCARD}" ]; then
+	echo "${SDCARD} is not a block device!"
+	exit 1
+fi
+
+# root privilege check
+
+USERID=`id -u`
+if [ ${USERID} -ne 0 ]; then
+	echo "${0} requires root privileges in order to work."
+	exit 0
+fi
+
+# dependencies
+
+CP=`which cp`
+FDISK=`which fdisk`
+MKDIR=`which mkdir`
+MKFS_EXT4=`which mkfs.ext4`
+MKFS_VFAT=`which mkfs.vfat`
+MOUNT=`which mount`
+RMDIR=`which rmdir`
+SYNC=`which sync`
+TAR=`which tar`
+UMOUNT=`which umount`
+
+if [ -z "${CP}" ] ||
+   [ -z "${FDISK}" ] ||
+   [ -z "${MKDIR}" ] ||
+   [ -z "${MKFS_EXT4}" ] ||
+   [ -z "${MKFS_VFAT}" ] ||
+   [ -z "${MOUNT}" ] ||
+   [ -z "${RMDIR}" ] ||
+   [ -z "${TAR}" ] ||
+   [ -z "${UMOUNT}" ]; then
+	echo "Missing dependencies:\n"
+	echo "CP=${CP}"
+	echo "FDISK=${FDISK}"
+	echo "MKDIR=${MKDIR}"
+	echo "MKFS_EXT4=${MKFS_EXT4}"
+	echo "MKFS_VFAT=${MKFS_VFAT}"
+	echo "MOUNT=${MOUNT}"
+	echo "RMDIR=${RMDIR}"
+	echo "TAR=${TAR}"
+	echo "UMOUNT=${UMOUNT}"
+	exit 1
+fi
+
+# sanity check
+
+if [ ! -d "images/rpi-firmware" ] || [ ! -f "images/rootfs.tar" ]; then
+	if [ -d "output/images/rpi-firmware" ] && [ -f "output/images/rootfs.tar" ]; then
+		OUTPUT_PREFIX="output/"
+	else
+		echo "Didn't find rpi-firmware and/or rootfs.tar! ABORT."
+		exit 1
+	fi
+fi
+
+# warn user
+
+confirm
+
+# partition image
+
+section "Partitioning SD card..."
+
+${FDISK} ${SDCARD} <<END
+o
+n
+p
+1
+
++32M
+n
+p
+2
+
+
+t
+1
+e
+a
+1
+w
+END
+
+sleep 1
+
+# format partitions
+
+section "Formatting partitions..."
+
+${MKFS_VFAT} -F 16 -n BOOT -I "${SDCARD}1" || exit 1
+${MKFS_EXT4} -F -q -L rootfs "${SDCARD}2" || exit 1
+
+# prepare to fill partitions
+
+${MKDIR} .mnt
+
+# fill boot
+
+section "Populating boot partition..."
+
+${MOUNT} "${SDCARD}1" .mnt || exit 2
+${CP} -r ${OUTPUT_PREFIX}images/rpi-firmware/overlays .mnt
+${CP} ${OUTPUT_PREFIX}images/rpi-firmware/*.dtb .mnt
+${CP} ${OUTPUT_PREFIX}images/rpi-firmware/bootcode.bin .mnt
+${CP} ${OUTPUT_PREFIX}images/rpi-firmware/fixup.dat .mnt
+${CP} ${OUTPUT_PREFIX}images/rpi-firmware/start.elf .mnt
+${CP} ${OUTPUT_PREFIX}images/zImage .mnt/kernel.img
+${CP} ${OUTPUT_PREFIX}images/*txt .mnt
+${CP} ffw4-configs/* .mnt
+${CP} local-configs/* .mnt
+${SYNC}
+${UMOUNT} .mnt
+
+# fill rootfs
+
+section "Populating rootfs partition..."
+
+${MOUNT} "${SDCARD}2" .mnt || exit 2
+${TAR} -xpsf ${OUTPUT_PREFIX}images/rootfs.tar -C .mnt
+${SYNC}
+${UMOUNT} .mnt
+
+# clean up
+
+${RMDIR} .mnt
+
+section "Finished!"
+
+exit 0
