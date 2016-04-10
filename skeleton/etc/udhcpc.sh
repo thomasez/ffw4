@@ -23,7 +23,7 @@ if $(bool_value "$DHCP_USE_LAST_ADDR" && [ -f /etc/dhcp.addr ])
     if [ "$LAST_DHCP_ADDR" != "" ]
       then
         echo "Gonna ask for $LAST_DHCP_ADDR"
-        if /sbin/udhcpc -t 3 -r $LAST_DHCP_ADDR -n -s /etc/udhcpcrenew.sh $HARGS -i $OUTSIDE_DEV
+        if udhcpc -t 3 -r $LAST_DHCP_ADDR -n -s /etc/udhcpcrenew.sh $HARGS -i $OUTSIDE_DEV
           then
 	       . /etc/outside.info
            echo $OUTSIDE_IP > /etc/dhcp.addr  2> /dev/null
@@ -36,7 +36,7 @@ fi
 #
 # OK, either we did not have an existing address or we did not get it.
 #
-if /sbin/udhcpc -n -s /etc/udhcpcrenew.sh $HARGS -i $OUTSIDE_DEV
+if udhcpc -n -s /etc/udhcpcrenew.sh $HARGS -i $OUTSIDE_DEV
   then
     if $(bool_value "$DHCP_USE_LAST_ADDR" && touch /etc/dhcp.addr 2> /dev/null)
       then

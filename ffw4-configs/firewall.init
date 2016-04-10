@@ -24,7 +24,7 @@ SERVER_IP=10.42.42.42
 echo "0" > /proc/sys/net/ipv4/ip_forward
 
 #
-# Overriding the /etc/config and adding additional information.
+# Overriding the /etc/ffw4.conf and adding additional information.
 #
 . /etc/outside.info
 . /etc/inside.info

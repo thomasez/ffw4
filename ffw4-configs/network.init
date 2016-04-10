@@ -218,18 +218,18 @@ fi
 if bool_value "$DHCP_SERVER"
 then
 	/etc/udhcpd.conf.sh
-	/sbin/udhcpd /etc/udhcpd.conf
-	pidof dnsmasq > /dev/null || /sbin/dnsmasq $DNSMASQ_OPTS 
+	udhcpd /etc/udhcpd.conf
+	pidof dnsmasq > /dev/null || dnsmasq $DNSMASQ_OPTS 
 else
 	if bool_value "$DNSMASQ"
 	then
-		pidof dnsmasq > /dev/null || /sbin/dnsmasq $DNSMASQ_OPTS 
+		pidof dnsmasq > /dev/null || dnsmasq $DNSMASQ_OPTS 
 	fi
 fi
 
 if bool_value "$DMZ_DHCP_SERVER"
 then
 	/etc/dmz-udhcpd.conf.sh
-	/sbin/udhcpd /etc/dmz-udhcpd.conf
-	pidof dnsmasq > /dev/null || /sbin/dnsmasq $DNSMASQ_OPTS 
+	udhcpd /etc/dmz-udhcpd.conf
+	pidof dnsmasq > /dev/null || dnsmasq $DNSMASQ_OPTS 
 fi

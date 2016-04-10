@@ -252,8 +252,8 @@ DMZ_ALLOW_FROM_INSIDE="all"
 # Phone number:
 TELEPHONE=
 
-# Serial Port COM1 is /dev/tts/0, COM2 is /dev/tts/1 etc.
-SERIAL_PORT=/dev/tts/1
+# Serial Port COM1 is /dev/ttyS0, COM2 is /dev/ttyS1 etc.
+SERIAL_PORT=/dev/ttyS1
 PORT_SPEED=57600
 PPP_CONNECT_TIMEOUT=60
 PPP_CONNECT_POLL=3

@@ -1,7 +1,6 @@
 #!/bin/sh
 #
 # Flash Raspberry Pi SD card [buildroot]
-# https://github.com/gamaral/rpi-buildroot/blob/rpi/board/raspberrypi/mksdcard
 #
 # Guillermo A. Amaral B. <g@maral.me>
 #
@@ -139,12 +138,20 @@ END
 
 sleep 1
 
+# figure out partition pattern
+
+case "${SDCARD}" in
+	*mmcblk*) SDCARDP="${SDCARD}p" ;;
+	*)        SDCARDP="${SDCARD}"  ;;
+esac
+
 # format partitions
 
 section "Formatting partitions..."
 
-${MKFS_VFAT} -F 16 -n BOOT -I "${SDCARD}1" || exit 1
-${MKFS_EXT4} -F -q -L rootfs "${SDCARD}2" || exit 1
+${MKFS_VFAT} -F 16 -n BOOT -I "${SDCARDP}1" || exit 1
+${MKFS_EXT4} -F -q -L rootfs "${SDCARDP}2" || exit 1
+
 
 # prepare to fill partitions
 
@@ -153,29 +160,21 @@ ${MKDIR} .mnt
 # fill boot
 
 section "Populating boot partition..."
+${MOUNT} "${SDCARDP}1" .mnt || exit 2
 
-${MOUNT} "${SDCARD}1" .mnt || exit 2
-${CP} -r ${OUTPUT_PREFIX}images/rpi-firmware/overlays .mnt
-${CP} ${OUTPUT_PREFIX}images/rpi-firmware/*.dtb .mnt
 ${CP} ${OUTPUT_PREFIX}images/rpi-firmware/bootcode.bin .mnt
 ${CP} ${OUTPUT_PREFIX}images/rpi-firmware/fixup.dat .mnt
 ${CP} ${OUTPUT_PREFIX}images/rpi-firmware/start.elf .mnt
 ${CP} ${OUTPUT_PREFIX}images/zImage .mnt/kernel.img
-${CP} ${OUTPUT_PREFIX}images/*txt .mnt
-${CP} ffw4-configs/* .mnt
-[ -f ffw4-configs/rpi_cmdline.txt ] && ${CP} ffw4-configs/rpi_cmdline.txt .mnt/cmdline.txt
-[ -f ffw4-configs/rpi_config.txt ] && ${CP} ffw4-configs/rpi_config.txt .mnt/config.txt
-${CP} local-configs/* .mnt
-[ -f local-configs/rpi_cmdline.txt ] && ${CP} local-configs/rpi_cmdline.txt .mnt/cmdline.txt
-[ -f local-configs/rpi_config.txt ] && ${CP} local-configs/rpi_config.txt .mnt/config.txt
+${CP} ${OUTPUT_PREFIX}images/*.dtb .mnt
 ${SYNC}
 ${UMOUNT} .mnt
 
 # fill rootfs
 
 section "Populating rootfs partition..."
+${MOUNT} "${SDCARDP}2" .mnt || exit 2
 
-${MOUNT} "${SDCARD}2" .mnt || exit 2
 ${TAR} -xpsf ${OUTPUT_PREFIX}images/rootfs.tar -C .mnt
 ${SYNC}
 ${UMOUNT} .mnt

@@ -2,7 +2,7 @@
 
 # $Id:$
 
-. /etc/vmfw.conf
+. /etc/ffw4.conf
 . /etc/dmz.info
 
 if [ "$DMZ_DOMAIN" ]

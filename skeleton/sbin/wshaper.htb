@@ -1,0 +1,235 @@
+#!/bin/sh
+#
+# Wonder Shaper r24
+#
+
+# --#
+# Some small things changed by Thomas Lundquist <thomasez@zelow.no>
+# to make it work with floppyfw
+# Basically, it's grabbing values from files in /etc and changing the
+# calculations from bash'ism to using expr.
+# r24 060815 
+# Brad Skiff added mods for VoIP class <bbbrad2dbone@hotmail.com> 
+# adapted portions from Kristian Kielhofner's htb script <kris@krisk.org>
+# changed r2q 100 to r2q calc (r2q = 125*${UPLINK}kbit/mtu) 
+# changed default class to 30 from 20, added "...Stopped - exit" message.
+# added config RT10 rate value and calc'd all other rate + ceil values
+# upped ingress burst from 10K to 20K - boosted download speed
+# removed 90% and 80% CUTTED values and added calc'd quantum to classes
+# added kog script suggestions correctly and for-do loop for stochastic fairness
+# thomasez: s/SERVER_IP/PHONE_IP/
+# added vars to config for flexibility plus count function for LO/HI_RTPPORT
+# added logic to check for empty ports vars in config for flexibility
+# put SIP ports in class 10 since some (asterisk) use them for RTP too.
+# added logic to remove VoIP class if PHONE_IP= .or. RT10= blank in config.
+# added WARNING message if no voip ports are entered in config.
+# commented out ICMP and made it a test template.
+# removed class 40 and re-distributed its percentage to class 20 and 30
+# added INGRESS_COP var and "nocop" arg for policer on/off sw
+# --
+
+. /etc/functions.inc
+. /etc/vmfw.conf
+. /etc/outside.info
+. /etc/inside.info
+
+#
+# calculated values
+#
+cut_to_percentage () {
+        echo `expr $2 \* $1 / 100`
+}
+
+calc_r2q_val () {
+	echo `expr $2 \* $1 / 1500`
+}
+
+calc_qtc_val () {
+	echo `expr $2 / $1`
+}
+
+calc_prod_vals () {
+	echo `expr $2 \* $1`
+}
+
+calc_diff_vals () {
+	echo `expr $1 - $2`
+}
+
+DEV=$OUTSIDE_DEVICE
+
+if [ "$1" = "status" ]
+then
+	tc -s qdisc ls dev $DEV
+	tc -s class ls dev $DEV
+	if [ -n "$(tc -s qdisc |grep ingress)" ]
+	then echo "INGRESS_COP=ON - limited DL speed"
+	else echo "INGRESS_COP=OFF - maximum DL speed"
+	fi
+	exit
+fi
+
+# This makes it "Somewhat less" based on the accurate numbers in /etc/vmfw.conf
+# r24 adds nocop argument
+if [ "$1" = "nocop" ]
+  then
+  INGRESS_COP=n
+  DOWNLINK=$DOWNLOAD_SPEED
+else
+  INGRESS_COP=y
+DOWNLINK=`cut_to_percentage $DOWNLOAD_SPEED 94`
+fi
+UPLINK=`cut_to_percentage $UPLOAD_SPEED 94`
+ 
+# Calculate RTXX rates as a % of (UPLINK-RT10 rate in config) in bits/sec
+UPLINKBPS=`calc_prod_vals $UPLINK 1000`
+if [ -n "$PHONE_IP" ] && [ -n "$RT10" ]
+then
+RTUPLBPS=`calc_diff_vals $UPLINKBPS $RT10`
+else
+RTUPLBPS=$UPLINKBPS
+fi
+RT20=`cut_to_percentage $RTUPLBPS 30`
+RT30=`cut_to_percentage $RTUPLBPS 70`
+
+QTUM=`calc_r2q_val ${UPLINK} 125`
+
+if [ "$1" != "stop" ]
+then
+echo "Wondershaper with downlink $DOWNLINK - uplink $UPLINK - r2q $QTUM - on $DEV"
+fi
+
+# clean existing down- and uplink qdiscs, hide errors
+tc qdisc del dev $DEV root    2> /dev/null > /dev/null
+tc qdisc del dev $DEV ingress 2> /dev/null > /dev/null
+
+if [ "$1" = "stop" ] 
+then 
+	echo "Wondershaper Stopped - exit"
+	exit
+fi
+
+###### uplink
+
+# install root HTB, point default traffic to 1:30:
+
+# The "r2q 100" may be wrong but default is 10 and seems to be too little.
+# It should probably be calculated somehow. r2q = 125*${UPLINK}/mtu
+
+QTUM=`calc_r2q_val ${UPLINK} 125`
+tc qdisc add dev $DEV root handle 1: htb default 30 r2q $QTUM
+
+# shape everything at $UPLINK speed - this prevents huge queues in your
+# DSL modem which destroy latency:
+tc class add dev $DEV parent 1: classid 1:1 htb rate ${UPLINK}kbit ceil ${UPLINK}kbit burst 6k
+
+if [ -n "$PHONE_IP" ] && [ -n "$RT10" ]
+then
+QTC10=`calc_qtc_val $QTUM $RT10`
+fi
+QTC20=`calc_qtc_val $QTUM $RT20`
+QTC30=`calc_qtc_val $QTUM $RT30`
+
+if [ -n "$PHONE_IP" ] && [ -n "$RT10" ]
+then
+# VoIP prio class 1:10:
+tc class add dev $DEV parent 1:1 classid 1:10 htb rate $RT10 ceil ${UPLINK}kbit burst 6k prio 1 quantum $QTC10
+fi
+
+# high prio class 1:20 - gets slightly less traffic and a lower priority:
+tc class add dev $DEV parent 1:1 classid 1:20 htb rate $RT20 ceil ${UPLINK}kbit burst 6k prio 2 quantum $QTC20
+
+# The default class, 'non-interactive' ie 'bulk' traffic in 1:30
+tc class add dev $DEV parent 1:1 classid 1:30 htb rate $RT30 ceil ${UPLINK}kbit burst 6k prio 3 quantum $QTC30
+
+# all get Stochastic Fairness:
+if [ -n "$PHONE_IP" ] && [ -n "$RT10" ]
+ then
+ tc qdisc add dev $DEV parent 1:10 handle 10: sfq perturb 10
+fi
+
+for i in 20 30
+do
+tc qdisc add dev $DEV parent 1:$i handle $i: sfq perturb 10
+done
+
+if [ -n "$PHONE_IP" ] && [ -n "$RT10" ]
+then
+# Voip TOS in 1:10
+# matching on all I/O data on RTP and/or SIP ports specified in config
+# 
+# RTP ports range as defined in config
+  if [ -n "$LO_RTPPORT" ] && [ -n "$HI_RTPPORT" ]
+  then
+  RTP_RANGE=1
+  for a in `count $LO_RTPPORT $HI_RTPPORT`
+  do
+	tc filter add dev $DEV parent 1:0 protocol ip prio 10 u32 match ip dport $a 0xffff flowid 1:10
+	tc filter add dev $DEV parent 1:0 protocol ip prio 10 u32 match ip sport $a 0xffff flowid 1:10
+  done
+  else RTP_RANGE=0
+  fi
+
+# SIP ports as defined in config
+  if [ -n "$INTPORTS" ]
+  then
+  SIP_ENTRY=1
+  for a in $INTPORTS
+  do
+	tc filter add dev $DEV parent 1:0 protocol ip prio 11 u32 match ip dport $a 0xffff flowid 1:10
+	tc filter add dev $DEV parent 1:0 protocol ip prio 11 u32 match ip sport $a 0xffff flowid 1:10
+  done
+  else SIP_ENTRY=0
+  fi
+  
+# Error Check for RTP/SIP ports entries
+  if [ "$RTP_RANGE" -lt 1 ] && [ "$SIP_ENTRY" -lt 1 ]
+  then
+  echo "WARNING: You MUST enter LO_RTPPORT AND HI_RTPPORT - OR INTPORT"
+  echo " - OR ALL Three values in the config to get VoIP priority."
+  fi
+fi
+
+# TOS Minimum Delay (ssh, NOT scp) in 1:20:
+tc filter add dev $DEV parent 1:0 protocol ip prio 20 u32 match ip tos 0x10 0xff  flowid 1:20
+
+# DNS in interactive class 1:20
+tc filter add dev $DEV parent 1:0 protocol ip prio 21 u32 match ip sport 53 0xffff flowid 1:20
+tc filter add dev $DEV parent 1:0 protocol ip prio 22 u32 match ip dport 53 0xffff flowid 1:20
+
+# only give TCP ACK's higher priority if this connection is asymmetrical
+if [ ! $DOWNLINK = $UPLINK ]
+then
+# give TCP ACK's higher priority in 1:20
+tc filter add dev $DEV parent 1: protocol ip prio 23 u32 \
+   match ip protocol 6 0xff \
+   match u8 0x05 0x0f at 0 \
+   match u16 0x0000 0xffc0 at 2 \
+   match u8 0x10 0xff at 33 \
+   flowid 1:20
+fi
+
+# ICMP Test - Remove '#' below to test class 1:20 ping response time:
+# tc filter add dev $DEV parent 1: protocol ip prio 25 u32 match ip protocol 1 0xff flowid 1:20 
+
+# The default class, 'non-interactive' ie 'bulk' traffic end up here in 1:30
+tc filter add dev $DEV parent 1: protocol ip prio 30 u32 match ip dst 0.0.0.0/0 flowid 1:30
+
+# r24 INGRESS_COP on/off logic
+if [ "$INGRESS_COP" = "y" ]
+then
+########## downlink #############
+# slow downloads down to somewhat less than the real speed  to prevent 
+# queuing at our ISP. Tune to see how high you can set it.
+# ISPs tend to have *huge* queues to make sure big downloads are fast
+#
+# attach ingress policer:
+
+tc qdisc add dev $DEV handle ffff: ingress
+
+# filter *everything* to it (0.0.0.0/0), drop everything that's
+# coming in too fast:
+
+tc filter add dev $DEV parent ffff: protocol ip prio 50 u32 match ip src \
+   0.0.0.0/0 police rate ${DOWNLINK}kbit burst 20k drop flowid :1
+fi
